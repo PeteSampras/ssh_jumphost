@@ -1,29 +1,65 @@
-#!/usr/bin/env python
+import threading
+from queue import Queue
+import time
 import socket
-target_host = "104.248.191.147"
-target_port = 22
-# create a socket object
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# connect the client
-client.connect((target_host,target_port))
-c="GET / HTTP/1.1\r\nHost: 104.248.191.147\r\n\r\n"
-byt=c.encode()
-# send some data
-client.send(byt)
-# receive some data
-response = client.recv(4096)
-print(response.decode())
-client.close()
 
-# now do UDP
-# create a socket object
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# send some data
-c="AAABBBCCC"
-byt=c.encode()
-client.sendto(byt,(target_host,target_port))
-# receive some data
-data, addr = client.recvfrom(4096)
-print(data)
-client.close()
+# a print_lock is what is used to prevent "double" modification of shared variables.
+# this is used so while one thread is using a variable, others cannot access
+# it. Once done, the thread releases the print_lock.
+# to use it, you want to specify a print_lock per thing you wish to print_lock.
+print_lock = threading.Lock()
+
+# create a global dictionary
+found_ports={}
+
+target = '104.248.191.147'
+#ip = socket.gethostbyname(target)
+
+def portscan(port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(.4)
+    try:
+        con = s.connect((target,port))
+        with print_lock:
+            found_ports.update(port=socket.getservbyport(port))
+            print('{} - {}'.format(port,socket.getservbyport(port)))
+        con.close()
+    except:
+        pass
+
+# The threader thread pulls an worker from the queue and processes it
+def threader():
+    while True:
+        # gets an worker from the queue
+        worker = q.get()
+
+        # Run the example job with the avail worker in queue (thread)
+        portscan(worker)
+
+        # completed with the job
+        q.task_done()
+
+
+# Create the queue and threader 
+q = Queue()
+
+# how many threads are we going to allow for
+for x in range(1000):
+     t = threading.Thread(target=threader)
+
+     # classifying as a daemon, so they will die when the main dies
+     t.daemon = True
+
+     # begins, must come after daemon definition
+     t.start()
+
+
+start = time.time()
+
+# 100 jobs assigned. 65535
+for worker in range(1,65535):
+    q.put(worker)
+
+# wait until the thread terminates.
+q.join()
 
