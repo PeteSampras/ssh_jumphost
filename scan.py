@@ -24,7 +24,7 @@ found_ports={}
 
 #     args = parser.parse_args()
 #     print(args.ip)
-    #target = args.ip
+#     target = args.ip
 
 target = '104.248.191.147'
 #ip = socket.gethostbyname(target)
